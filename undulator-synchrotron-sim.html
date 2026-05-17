@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Simulateur onduleur EBS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Serif:wght@500;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" defer></script>
+  <style>
+    :root,[data-theme="light"]{--text-sm:clamp(.875rem,.8rem+.35vw,1rem);--text-base:clamp(1rem,.95rem+.25vw,1.125rem);--text-lg:clamp(1.125rem,1rem+.75vw,1.5rem);--text-xl:clamp(1.5rem,1.2rem+1.25vw,2.25rem);--space-2:.5rem;--space-3:.75rem;--space-4:1rem;--space-5:1.25rem;--space-6:1.5rem;--space-8:2rem;--space-12:3rem;--color-bg:#f7f6f2;--color-surface:#f9f8f5;--color-surface-2:#fbfbf9;--color-surface-offset:#f3f0ec;--color-border:#d4d1ca;--color-text:#28251d;--color-text-muted:#66655f;--color-primary:#01696f;--color-blue:#006494;--color-gold:#d19900;--color-purple:#7a39bb;--radius-md:.5rem;--radius-lg:.75rem;--radius-xl:1rem;--shadow:0 6px 18px rgba(0,0,0,.08);--font-body:'IBM Plex Sans',sans-serif;--font-display:'IBM Plex Serif',serif}
+    [data-theme="dark"]{--color-bg:#171614;--color-surface:#1c1b19;--color-surface-2:#201f1d;--color-surface-offset:#22211f;--color-border:#393836;--color-text:#e2e0db;--color-text-muted:#a5a39d;--color-primary:#4f98a3;--color-blue:#74a9d6;--color-gold:#e8af34;--color-purple:#b48ae2;--shadow:0 10px 24px rgba(0,0,0,.35)}
+    *{box-sizing:border-box} body{margin:0;background:var(--color-bg);color:var(--color-text);font:var(--text-base)/1.5 var(--font-body)} button,input,select{font:inherit} .wrap{max-width:1400px;margin:0 auto;padding:var(--space-6)}
+    .top{display:flex;justify-content:space-between;gap:var(--space-4);align-items:flex-start;margin-bottom:var(--space-6)} h1{margin:0 0 .35rem 0;font-family:var(--font-display);font-size:var(--text-xl)} p{margin:.25rem 0;color:var(--color-text-muted);max-width:95ch}
+    .theme{min-width:44px;min-height:44px;border-radius:999px;border:1px solid var(--color-border);background:var(--color-surface);cursor:pointer}
+    .grid{display:grid;grid-template-columns:380px 1fr;gap:var(--space-6)} @media(max-width:1040px){.grid{grid-template-columns:1fr}}
+    .panel{background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-xl);box-shadow:var(--shadow)} .controls{padding:var(--space-5);position:sticky;top:1rem}
+    .controls h2,.viz h2{margin:0 0 var(--space-4) 0;font-size:var(--text-lg)} .field{margin-bottom:var(--space-4)} .field label{display:flex;justify-content:space-between;gap:1rem;font-weight:600;margin-bottom:.35rem}
+    .field small,.small{color:var(--color-text-muted);font-size:var(--text-sm)} input[type=range]{width:100%} select{width:100%;padding:.75rem .8rem;border-radius:var(--radius-md);border:1px solid var(--color-border);background:var(--color-surface-2);color:var(--color-text)}
+    .cards{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:var(--space-4);margin-bottom:var(--space-4)} @media(max-width:1200px){.cards{grid-template-columns:repeat(3,1fr)}} @media(max-width:700px){.cards{grid-template-columns:repeat(2,1fr)}}
+    .card{background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-lg);padding:var(--space-4)} .k{font-size:var(--text-sm);color:var(--color-text-muted)} .v{font-size:1.3rem;font-weight:700;margin-top:.25rem}
+    .viz{padding:var(--space-5)} .plot{height:330px;background:var(--color-surface-2);border:1px solid var(--color-border);border-radius:var(--radius-lg);margin-bottom:var(--space-4)}
+    .note{background:var(--color-surface-offset);border:1px solid var(--color-border);border-radius:var(--radius-lg);padding:var(--space-4);color:var(--color-text-muted);font-size:var(--text-sm)} code{font-family:ui-monospace,monospace}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div>
+      <h1>Simulateur avancé onduleur ESRF-EBS</h1>
+      <p>Version adaptée au stockage EBS: énergie 6 GeV, courant multibunch 200 mA, émittance opérationnelle horizontale/verticale, dispersion et optiques des sections ID paires/impaires. La simulation combine un modèle de spectre d’onduleur simplifié avec une convolution par la phase space du faisceau pour estimer taille de source photonique, divergence et brilliance relative.</p>
+    </div>
+    <button class="theme" data-theme-toggle aria-label="Basculer le thème">◐</button>
+  </div>
+
+  <div class="grid">
+    <aside class="panel controls">
+      <h2>Paramètres EBS / ID</h2>
+      <div class="field">
+        <label for="section"><span>Section EBS</span><strong id="secVal"></strong></label>
+        <select id="section">
+          <option value="odd">ID impaires (βx≈0.5 m)</option>
+          <option value="even">ID paires (βx≈35.2 m)</option>
+        </select>
+      </div>
+      <div class="field"><label><span>Énergie électron (GeV)</span><strong id="eVal"></strong></label><input id="energy" type="range" min="5.5" max="6.5" step="0.01" value="6.0"></div>
+      <div class="field"><label><span>Courant stocké (mA)</span><strong id="iVal"></strong></label><input id="current" type="range" min="10" max="250" step="5" value="200"></div>
+      <div class="field"><label><span>Champ pic B (T)</span><strong id="bVal"></strong></label><input id="B" type="range" min="0.1" max="2.0" step="0.01" value="1.10"></div>
+      <div class="field"><label><span>Période λu (mm)</span><strong id="pVal"></strong></label><input id="period" type="range" min="12" max="40" step="0.5" value="18"></div>
+      <div class="field"><label><span>Nombre de périodes N</span><strong id="nVal"></strong></label><input id="periods" type="range" min="20" max="250" step="1" value="110"></div>
+      <div class="field"><label><span>Spread énergie σδ (10⁻³)</span><strong id="sVal"></strong></label><input id="spread" type="range" min="0.5" max="1.5" step="0.01" value="0.93"></div>
+      <div class="field"><label><span>Émittance verticale (pm.rad)</span><strong id="evVal"></strong></label><input id="emitV" type="range" min="2" max="30" step="0.5" value="10"></div>
+      <div class="field"><label><span>Croissance εx IBS (%)</span><strong id="gxVal"></strong></label><input id="growth" type="range" min="0" max="40" step="1" value="0"></div>
+      <div class="note">Les valeurs par défaut suivent les paramètres publiés pour ESRF-EBS: 6 GeV, 200 mA, énergie spread autour de 0.93×10⁻³, émittance opérationnelle 130/10 pm, avec des optiques très différentes entre sections ID impaires et paires.</div>
+    </aside>
+
+    <main>
+      <section class="cards">
+        <div class="card"><div class="k">γ</div><div class="v" id="gammaOut"></div></div>
+        <div class="card"><div class="k">K</div><div class="v" id="kOut"></div></div>
+        <div class="card"><div class="k">E1</div><div class="v" id="e1Out"></div></div>
+        <div class="card"><div class="k">σx,e</div><div class="v" id="sigxOut"></div></div>
+        <div class="card"><div class="k">σx',e</div><div class="v" id="sigxpOut"></div></div>
+        <div class="card"><div class="k">Brilliance rel.</div><div class="v" id="brOut"></div></div>
+      </section>
+      <section class="panel viz">
+        <h2>Visualisations</h2>
+        <div id="spectrum" class="plot"></div>
+        <div id="phase" class="plot"></div>
+        <div id="brilliance" class="plot"></div>
+        <div id="source" class="plot"></div>
+        <div class="note" id="physicsText"></div>
+      </section>
+    </main>
+  </div>
+</div>
+<script>
+(() => {
+  const ID_SECTIONS = {
+    odd: {name:'ID impaires', betaX:0.5, betaY:2.73, etaX:0.037, emitX_pm:130, emitV_pm:10},
+    even:{name:'ID paires', betaX:35.2, betaY:2.52, etaX:0.137, emitX_pm:130, emitV_pm:10}
+  };
+  const meGeV = 0.00051099895, hc_eVm = 1.239841984e-6;
+  const $ = id => document.getElementById(id);
+  const el = ['section','energy','current','B','period','periods','spread','emitV','growth','gammaOut','kOut','e1Out','sigxOut','sigxpOut','brOut','physicsText','secVal','eVal','iVal','bVal','pVal','nVal','sVal','evVal','gxVal'].reduce((a,k)=>(a[k]=$(k),a),{});
+  let theme = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  document.documentElement.setAttribute('data-theme', theme);
+  document.querySelector('[data-theme-toggle]').onclick = ()=>{theme=theme==='dark'?'light':'dark';document.documentElement.setAttribute('data-theme',theme);render();};
+  function fmt(x,d=3){if(!isFinite(x))return'—'; if(Math.abs(x)>=1000||Math.abs(x)<0.01)return x.toExponential(2); return x.toFixed(d)}
+  function model(){
+    const sec = ID_SECTIONS[el.section.value], E=+el.energy.value, I=+el.current.value, B=+el.B.value, lambda_u_mm=+el.period.value, N=+el.periods.value, sigmaDelta=+el.spread.value*1e-3, emitV_pm=+el.emitV.value, growth=+el.growth.value/100;
+    const gamma = E/meGeV, lambda_u_m=lambda_u_mm*1e-3, lambda_u_cm=lambda_u_mm*0.1, K=0.934*B*lambda_u_cm;
+    const emitX = sec.emitX_pm*(1+growth)*1e-12, emitY = emitV_pm*1e-12;
+    const sigmaX = Math.sqrt(sec.betaX*emitX + Math.pow(sec.etaX*sigmaDelta,2));
+    const sigmaXp = Math.sqrt(emitX/sec.betaX);
+    const sigmaY = Math.sqrt(sec.betaY*emitY);
+    const sigmaYp = Math.sqrt(emitY/sec.betaY);
+    const lambda1=(lambda_u_m/(2*gamma*gamma))*(1+K*K/2), E1=hc_eVm/lambda1;
+    const sigmaR=Math.sqrt(lambda1*(N*lambda_u_m)/(2*Math.PI*Math.PI))/2;
+    const sigmaRp=Math.sqrt(lambda1/(2*N*lambda_u_m));
+    const sigmaTotX=Math.sqrt(sigmaX*sigmaX+sigmaR*sigmaR), sigmaTotXp=Math.sqrt(sigmaXp*sigmaXp+sigmaRp*sigmaRp);
+    const sigmaTotY=Math.sqrt(sigmaY*sigmaY+sigmaR*sigmaR), sigmaTotYp=Math.sqrt(sigmaYp*sigmaYp+sigmaRp*sigmaRp);
+    const fluxScale=(I/200)*(N*N)*(K*K/(1+K*K/2));
+    const brilliance=fluxScale/(sigmaTotX*1e3*sigmaTotXp*1e3*sigmaTotY*1e3*sigmaTotYp*1e3);
+    return {sec,E,I,B,lambda_u_mm,lambda_u_m,N,sigmaDelta,emitX,emitY,gamma,K,lambda1,E1,sigmaX,sigmaXp,sigmaY,sigmaYp,sigmaR,sigmaRp,sigmaTotX,sigmaTotXp,sigmaTotY,sigmaTotYp,fluxScale,brilliance};
+  }
+  function spectrum(m){
+    const xs=[], ys=[]; const widthFinite = 1/(m.N); const widthSpread = 2*m.sigmaDelta; const width = Math.sqrt(widthFinite*widthFinite + widthSpread*widthSpread);
+    for(let e=Math.max(0.1,m.E1*0.2/1000); e<=Math.max(80,m.E1*15/1000); e*=1.01){
+      let y=0;
+      for(let n=1;n<=15;n+=2){
+        const En=n*m.E1/1000; const wn=Math.max(En*width,1e-6); const coupling=Math.exp(-0.18*(n-1)); const ang = 1/(1+0.08*(n-1));
+        y += m.fluxScale*coupling*ang/(1+Math.pow((e-En)/wn,2));
+      }
+      xs.push(e); ys.push(y);
+    }
+    return {xs,ys};
+  }
+  function brightnessVsB(m){
+    const x=[], yBr=[], yE1=[], yK=[];
+    for(let B=0.1; B<=2.0; B+=0.02){
+      const K=0.934*(m.lambda_u_mm*0.1)*B;
+      const lambda1=(m.lambda_u_m/(2*m.gamma*m.gamma))*(1+K*K/2), E1=hc_eVm/lambda1;
+      const sigmaR=Math.sqrt(lambda1*(m.N*m.lambda_u_m)/(2*Math.PI*Math.PI))/2;
+      const sigmaRp=Math.sqrt(lambda1/(2*m.N*m.lambda_u_m));
+      const sx=Math.sqrt(m.sigmaX*m.sigmaX+sigmaR*sigmaR), sxp=Math.sqrt(m.sigmaXp*m.sigmaXp+sigmaRp*sigmaRp), sy=Math.sqrt(m.sigmaY*m.sigmaY+sigmaR*sigmaR), syp=Math.sqrt(m.sigmaYp*m.sigmaYp+sigmaRp*sigmaRp);
+      const flux=(m.I/200)*(m.N*m.N)*(K*K/(1+K*K/2));
+      const br=flux/(sx*1e3*sxp*1e3*sy*1e3*syp*1e3);
+      x.push(B); yBr.push(br); yE1.push(E1/1000); yK.push(K);
+    }
+    return {x,yBr,yE1,yK};
+  }
+  function sourceScan(m){
+    const ids=['odd','even'];
+    return ids.map(key=>{
+      const s=ID_SECTIONS[key]; const emitX=m.emitX; const sigmaX=Math.sqrt(s.betaX*emitX + Math.pow(s.etaX*m.sigmaDelta,2)); const sigmaXp=Math.sqrt(emitX/s.betaX);
+      return {name:s.name, sx:sigmaX*1e6, sxp:sigmaXp*1e6};
+    });
+  }
+  function draw(){
+    const m=model();
+    el.secVal.textContent=m.sec.name; el.eVal.textContent=`${m.E.toFixed(2)} GeV`; el.iVal.textContent=`${m.I.toFixed(0)} mA`; el.bVal.textContent=`${m.B.toFixed(2)} T`; el.pVal.textContent=`${m.lambda_u_mm.toFixed(1)} mm`; el.nVal.textContent=`${m.N}`; el.sVal.textContent=`${(+el.spread.value).toFixed(2)}`; el.evVal.textContent=`${(+el.emitV.value).toFixed(1)}`; el.gxVal.textContent=`${(+el.growth.value).toFixed(0)} %`;
+    el.gammaOut.textContent=fmt(m.gamma,0); el.kOut.textContent=fmt(m.K,2); el.e1Out.textContent=`${fmt(m.E1/1000,3)} keV`; el.sigxOut.textContent=`${fmt(m.sigmaX*1e6,2)} µm`; el.sigxpOut.textContent=`${fmt(m.sigmaXp*1e6,2)} µrad`; el.brOut.textContent=fmt(m.brilliance,2);
+    const cs = getComputedStyle(document.documentElement), paper=cs.getPropertyValue('--color-surface-2').trim(), text=cs.getPropertyValue('--color-text').trim(), border=cs.getPropertyValue('--color-border').trim(), primary=cs.getPropertyValue('--color-primary').trim(), blue=cs.getPropertyValue('--color-blue').trim(), gold=cs.getPropertyValue('--color-gold').trim(), purple=cs.getPropertyValue('--color-purple').trim();
+    const layout={paper_bgcolor:paper,plot_bgcolor:paper,font:{color:text,family:'IBM Plex Sans, sans-serif'},margin:{l:60,r:40,t:40,b:55},legend:{orientation:'h'},xaxis:{gridcolor:border},yaxis:{gridcolor:border}};
+    const sp=spectrum(m);
+    Plotly.newPlot('spectrum',[{x:sp.xs,y:sp.ys,mode:'lines',line:{color:primary,width:3},name:'Spectre relatif convolué EBS'}],{...layout,title:'Spectre harmonique avec élargissement fini + spread énergie',xaxis:{...layout.xaxis,title:'Énergie photonique (keV)',type:'log'},yaxis:{...layout.yaxis,title:'Flux relatif'}},{responsive:true,displayModeBar:false});
+    Plotly.newPlot('phase',[
+      {x:[0],y:[0],mode:'markers',marker:{size:Math.max(12,Math.min(90,m.sigmaX*1e6/5)),color:blue,opacity:.45,line:{color:blue,width:2}},name:'Taille électronique σx'},
+      {x:[0],y:[0],mode:'markers',marker:{size:Math.max(12,Math.min(90,m.sigmaTotX*1e6/5)),color:gold,opacity:.35,line:{color:gold,width:2}},name:'Taille totale e⊗ph'}
+    ],{...layout,title:'Empreinte transverse simplifiée au point source',xaxis:{...layout.xaxis,title:'x (a.u.)',range:[-1,1],showticklabels:false},yaxis:{...layout.yaxis,title:'y (a.u.)',range:[-1,1],showticklabels:false}},{responsive:true,displayModeBar:false});
+    const br=brightnessVsB(m);
+    Plotly.newPlot('brilliance',[
+      {x:br.x,y:br.yBr,mode:'lines',line:{color:purple,width:3},name:'Brilliance relative',yaxis:'y1'},
+      {x:br.x,y:br.yE1,mode:'lines',line:{color:blue,width:3},name:'E1 (keV)',yaxis:'y2'},
+      {x:[m.B],y:[m.brilliance],mode:'markers',marker:{size:10,color:purple},name:'Point choisi'}
+    ],{...layout,title:'Compromis champ magnétique / énergie fondamentale / brilliance',xaxis:{...layout.xaxis,title:'Champ B (T)'},yaxis:{...layout.yaxis,title:'Brilliance relative'},yaxis2:{overlaying:'y',side:'right',title:'E1 (keV)',gridcolor:'rgba(0,0,0,0)'}},{responsive:true,displayModeBar:false});
+    const ss=sourceScan(m);
+    Plotly.newPlot('source',[
+      {x:ss.map(d=>d.name),y:ss.map(d=>d.sx),type:'bar',name:'σx e- (µm)',marker:{color:blue}},
+      {x:ss.map(d=>d.name),y:ss.map(d=>d.sxp),type:'bar',name:"σx' e- (µrad)",marker:{color:gold}}
+    ],{...layout,title:'Comparaison sections ID EBS paires / impaires',barmode:'group',xaxis:{...layout.xaxis,title:'Section'},yaxis:{...layout.yaxis,title:'Valeur'}},{responsive:true,displayModeBar:false});
+    el.physicsText.innerHTML=`Section choisie: <code>${m.sec.name}</code>. Avec <code>βx=${m.sec.betaX} m</code>, <code>βy=${m.sec.betaY} m</code>, <code>ηx=${m.sec.etaX} m</code>, <code>εx=${fmt(m.emitX*1e12,1)} pm.rad</code> et <code>εy=${fmt(m.emitY*1e12,1)} pm.rad</code>, on obtient <code>σx=${fmt(m.sigmaX*1e6,2)} µm</code>, <code>σx'=${fmt(m.sigmaXp*1e6,2)} µrad</code>, <code>σy=${fmt(m.sigmaY*1e6,2)} µm</code> et <code>σy'=${fmt(m.sigmaYp*1e6,2)} µrad</code>. La source photonique idéale de diffraction ajoute environ <code>σr=${fmt(m.sigmaR*1e6,2)} µm</code> et <code>σr'=${fmt(m.sigmaRp*1e6,2)} µrad</code>, ce qui permet d’estimer une taille totale et une brilliance relative cohérentes avec l’avantage EBS des faibles émittances.`;
+  }
+  ['input','change'].forEach(evt=>['section','energy','current','B','period','periods','spread','emitV','growth'].forEach(id=>el[id].addEventListener(evt,draw)));
+  draw(); window.addEventListener('resize',draw);
+})();
+</script>
+</body>
+</html>
